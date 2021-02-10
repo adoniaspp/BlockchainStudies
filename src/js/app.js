@@ -1,68 +1,80 @@
 App = {
-  web3Provider: null,
   contracts: {},
-
-  init: async function() {
-    // Load pets.
-    $.getJSON('../pets.json', function(data) {
-      var petsRow = $('#petsRow');
-      var petTemplate = $('#petTemplate');
-
-      for (i = 0; i < data.length; i ++) {
-        petTemplate.find('.panel-title').text(data[i].name);
-        petTemplate.find('img').attr('src', data[i].picture);
-        petTemplate.find('.pet-breed').text(data[i].breed);
-        petTemplate.find('.pet-age').text(data[i].age);
-        petTemplate.find('.pet-location').text(data[i].location);
-        petTemplate.find('.btn-adopt').attr('data-id', data[i].id);
-
-        petsRow.append(petTemplate.html());
-      }
-    });
-
-    return await App.initWeb3();
+  load: async () => {
+    await App.initWeb3()
+    await App.initContract()
+    await App.bindEvents()
   },
 
-  initWeb3: async function() {
-    /*
-     * Replace me...
-     */
-
+  initWeb3: async () => {
+    // Modern dapp browsers...
+    if (window.ethereum) {
+      App.web3Provider = window.ethereum
+      try {
+        // Request account access
+        await window.ethereum.enable()
+      } catch (error) {
+        // User denied account access...
+        console.error("User denied account access")
+      }
+    }
+    // Legacy dapp browsers...
+    else if (window.web3) {
+      App.web3Provider = window.web3.currentProvider
+    }
+    // If no injected web3 instance is detected, fall back to Ganache
+    else {
+      App.web3Provider = new Web3.providers.HttpProvider('http://localhost:7545')
+    }
+    web3 = new Web3(App.web3Provider);
     return App.initContract();
   },
 
-  initContract: function() {
-    /*
-     * Replace me...
-     */
-
-    return App.bindEvents();
+  initContract: async () => {
+    const election = await $.getJSON("Election.json")
+    App.contracts.Election = TruffleContract(election)
+    App.contracts.Election.setProvider(App.web3Provider)
   },
 
-  bindEvents: function() {
-    $(document).on('click', '.btn-adopt', App.handleAdopt);
+  bindEvents: async () => {
+    var electionInstance;
+    //var loader = $("#loader");
+    //var content = $("#content");
+
+    web3.eth.getCoinbase(function (err, account) {
+      if (err == null) {
+        App.account = account;
+        $("#accountsAddress").html("Your Account: " + account);
+      }
+    })
+
+    
+      electionInstance = await App.contracts.Election.deployed();
+      var candidatesResult = $("#candidatesResults");
+      candidatesResult.empty();
+      electionInstance.candidatesCount().then((candidateCount) => {
+        console.log(candidateCount)
+        for (var i = 1; i <= candidateCount; i++) {
+          electionInstance.candidates(i).then(function (candidate) {
+            var id = candidate[0];
+            var name = candidate[1];
+            var voteCount = candidate[2];
+            var candidateTemplate = "<tr><th>" + id + "</th><td>" + name + "</td><td>" + voteCount + "</td><tr>"
+            candidatesResult.append(candidateTemplate);
+          }).catch(function (error) {
+            console.warn(error);
+          })
+        }
+      })
   },
-
-  markAdopted: function() {
-    /*
-     * Replace me...
-     */
-  },
-
-  handleAdopt: function(event) {
-    event.preventDefault();
-
-    var petId = parseInt($(event.target).data('id'));
-
-    /*
-     * Replace me...
-     */
-  }
-
 };
 
-$(function() {
-  $(window).load(function() {
-    App.init();
+$(() => {
+  $(window).on("load", () => {
+    App.load();
   });
 });
+
+/*$(document).ready(function () {
+  App.load();
+});*/
