@@ -24,6 +24,10 @@ contract Election
         addCandidate("Dalva Pires");
     }
 
+    event votedEvent(
+        uint indexed _candidateId
+    );
+
     function addCandidate(string memory _name) private{
         candidatesCount++;
         candidates[candidatesCount] = Candidate(candidatesCount, _name, 0);
@@ -38,5 +42,7 @@ contract Election
         voters[msg.sender] = true;
         //update candidate votecount
         candidates[_candidateId].voteCount++;
+
+        emit votedEvent(_candidateId);
     }
 }
